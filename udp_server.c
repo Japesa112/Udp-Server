@@ -1,6 +1,6 @@
 #include "contiki.h"
-#include "net/ip/uip.h"
-#include "net/ipv6/simple-udp.h"
+#include "net/uip.h"
+#include "net/simple-udp.h"
 #include <stdio.h>
 
 #define UDP_SERVER_PORT 1234
