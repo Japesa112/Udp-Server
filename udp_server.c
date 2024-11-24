@@ -1,43 +1,37 @@
 #include "contiki.h"
-#include "net/netstack.h"
 #include "net/ip/uip.h"
-#include "sys/etimer.h"
-#include "net/udp/udp.h"
+#include "net/ipv6/simple-udp.h"
 #include <stdio.h>
 
-#define UDP_PORT 1234
-#define MAX_PAYLOAD_LEN  255
+#define UDP_SERVER_PORT 1234
 
-static struct udp_conn *server_conn;
+static struct simple_udp_connection udp_conn;
 
-PROCESS(udp_server_process, "UDP Server Process");
+PROCESS(udp_server_process, "UDP Server");
 AUTOSTART_PROCESSES(&udp_server_process);
 
-static void udp_receive_callback(struct udp_conn *c, const uip_ipaddr_t *sender_addr,
-                                  uint16_t sender_port, uint8_t *data, uint16_t len) {
-    printf("Received message: '%s' from %d.%d.%d.%d\n", data,
-           sender_addr->u8[0], sender_addr->u8[1], sender_addr->u8[2], sender_addr->u8[3]);
-
-    // Send ACK
-    udp_packetbuf_clear();
-    char ack[] = "ACK";
-    udp_packetbuf_copyfrom(ack, sizeof(ack));
-    udp_sendto(c, sender_addr, sender_port);
+static void udp_rx_callback(struct simple_udp_connection *c,
+                             const uip_ipaddr_t *sender_addr,
+                             uint16_t sender_port,
+                             const uip_ipaddr_t *receiver_addr,
+                             uint16_t receiver_port,
+                             const uint8_t *data,
+                             uint16_t datalen) {
+  printf("Received request: '%.*s' from ", datalen, (char *)data);
+  printf("Sending response back to %u\n", sender_port);
+  
+  // Send a response
+  simple_udp_sendto(c, "ACK", strlen("ACK"), sender_addr);
 }
 
 PROCESS_THREAD(udp_server_process, ev, data) {
-    PROCESS_BEGIN();
-
-    // Set up the UDP connection
-    server_conn = udp_new(NULL, UIP_HTONS(UDP_PORT), udp_receive_callback);
-    udp_bind(server_conn, UIP_HTONS(UDP_PORT));
-
-    printf("UDP server started, waiting for data...\n");
-
-    // Main loop for the server to handle incoming packets
-    while(1) {
-        PROCESS_WAIT_EVENT();
-    }
-
-    PROCESS_END();
+  PROCESS_BEGIN();
+  
+  simple_udp_register(&udp_conn, UDP_SERVER_PORT, NULL, UDP_SERVER_PORT, udp_rx_callback);
+  
+  while(1) {
+    PROCESS_WAIT_EVENT();
+  }
+  
+  PROCESS_END();
 }
